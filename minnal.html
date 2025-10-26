@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🖼️ Smart Image Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f5f7fa; margin: 0; }
+    header { background: #333; color: #fff; padding: 15px; }
+    nav { margin: 15px; }
+    nav button {
+      margin: 5px; padding: 10px 15px; border: none; border-radius: 6px;
+      background: #007bff; color: white; cursor: pointer;
+    }
+    nav button:hover { background: #0056b3; }
+    .tab { display: none; padding: 20px; }
+    .active { display: block; }
+    .box { background: white; padding: 20px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+    input, select, button, textarea { margin: 10px; padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+    img { max-width: 300px; margin-top: 15px; border-radius: 6px; }
+    textarea { width: 95%; height: 200px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<header><h1>🖼️ Smart Image Converter</h1></header>
+
+<nav>
+  <button onclick="openTab('format')">Format</button>
+  <button onclick="openTab('resize')">Resize</button>
+  <button onclick="openTab('color')">Color</button>
+  <button onclick="openTab('toBase64')">Image → Base64</button>
+  <button onclick="openTab('fromBase64')">Base64 → Image</button>
+  <button onclick="openTab('kb')">KB</button>
+  <button onclick="openTab('toPdf')">Image → PDF</button>
+</nav>
+
+<!-- Format Converter -->
+<div id="format" class="tab active">
+  <div class="box">
+    <h2>Image Format Converter</h2>
+    <input type="file" id="uploadFormat" accept="image/*"><br>
+    <select id="formatType">
+      <option value="image/png">PNG</option>
+      <option value="image/jpeg">JPG</option>
+      <option value="image/webp">WEBP</option>
+    </select><br>
+    <button onclick="convertFormat()">Convert & Download</button>
+    <div id="previewFormat"></div>
+  </div>
+</div>
+
+<!-- Resize Converter -->
+<div id="resize" class="tab">
+  <div class="box">
+    <h2>Image Size Converter (Resizer)</h2>
+    <input type="file" id="uploadResize" accept="image/*"><br>
+    <input type="number" id="resizeWidth" placeholder="Width">
+    <input type="number" id="resizeHeight" placeholder="Height"><br>
+    <button onclick="resizeImage()">Resize & Download</button>
+    <div id="previewResize"></div>
+  </div>
+</div>
+
+<!-- Color Converter -->
+<div id="color" class="tab">
+  <div class="box">
+    <h2>Image Color Converter</h2>
+    <input type="file" id="uploadColor" accept="image/*"><br>
+    <select id="colorFilter">
+      <option value="none">Original</option>
+      <option value="grayscale(100%)">Grayscale</option>
+      <option value="sepia(100%)">Sepia</option>
+      <option value="invert(100%)">Negative</option>
+    </select><br>
+    <button onclick="applyColor()">Apply & Download</button>
+    <div id="previewColor"></div>
+  </div>
+</div>
+
+<!-- Image → Base64 -->
+<div id="toBase64" class="tab">
+  <div class="box">
+    <h2>Image → Base64</h2>
+    <input type="file" id="uploadToBase64" accept="image/*"><br>
+    <button onclick="convertToBase64()">Convert</button>
+    <div id="previewToBase64"></div>
+    <textarea id="outputBase64" placeholder="Base64 will appear here..."></textarea>
+  </div>
+</div>
+
+<!-- Base64 → Image -->
+<div id="fromBase64" class="tab">
+  <div class="box">
+    <h2>Base64 → Image</h2>
+    <textarea id="base64Input" placeholder="Paste your Base64 string here..."></textarea><br>
+    <button onclick="convertFromBase64()">Convert</button>
+    <button onclick="downloadFromBase64()">Download</button>
+    <div id="previewFromBase64"></div>
+  </div>
+</div>
+
+<!-- KB Converter -->
+<div id="kb" class="tab">
+  <div class="box">
+    <h2>Image KB Converter (Compressor)</h2>
+    <input type="file" id="uploadKB" accept="image/*"><br>
+    <input type="number" id="targetKB" placeholder="Target Size (KB)"><br>
+    <button onclick="compressKB()">Compress & Download</button>
+    <div id="previewKB"></div>
+    <p id="kbInfo"></p>
+  </div>
+</div>
+
+<!-- 🆕 Image → PDF Converter -->
+<div id="toPdf" class="tab">
+  <div class="box">
+    <h2>Image → PDF Converter</h2>
+    <input type="file" id="uploadPdfImage" accept="image/*"><br>
+    <button onclick="convertToPdf()">Convert & Download PDF</button>
+    <div id="previewPdfImage"></div>
+  </div>
+</div>
+
+<script>
+  function openTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  // === Format ===
+  let formatImg=null;
+  document.getElementById('uploadFormat').addEventListener('change', e=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      formatImg=new Image();
+      formatImg.src=ev.target.result;
+      document.getElementById('previewFormat').innerHTML="";
+      document.getElementById('previewFormat').appendChild(formatImg);
+    };
+    r.readAsDataURL(e.target.files[0]);
+  });
+  function convertFormat(){
+    if(!formatImg) return alert("Upload first!");
+    const type=document.getElementById('formatType').value;
+    const c=document.createElement('canvas'),ctx=c.getContext('2d');
+    c.width=formatImg.width; c.height=formatImg.height; ctx.drawImage(formatImg,0,0);
+    const a=document.createElement('a');
+    a.download="converted."+type.split("/")[1];
+    a.href=c.toDataURL(type);
+    a.click();
+  }
+
+  // === Resize ===
+  let resizeImg=null;
+  document.getElementById('uploadResize').addEventListener('change', e=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      resizeImg=new Image();
+      resizeImg.src=ev.target.result;
+      document.getElementById('previewResize').innerHTML="";
+      document.getElementById('previewResize').appendChild(resizeImg);
+    };
+    r.readAsDataURL(e.target.files[0]);
+  });
+  function resizeImage(){
+    if(!resizeImg) return alert("Upload first!");
+    const w=parseInt(document.getElementById('resizeWidth').value), h=parseInt(document.getElementById('resizeHeight').value);
+    if(!w||!h) return alert("Enter valid width & height!");
+    const c=document.createElement('canvas'),ctx=c.getContext('2d');
+    c.width=w; c.height=h; ctx.drawImage(resizeImg,0,0,w,h);
+    const a=document.createElement('a');
+    a.download="resized.png";
+    a.href=c.toDataURL("image/png");
+    a.click();
+  }
+
+  // === Color ===
+  let colorImg=null;
+  document.getElementById('uploadColor').addEventListener('change', e=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      colorImg=new Image();
+      colorImg.src=ev.target.result;
+      document.getElementById('previewColor').innerHTML="";
+      document.getElementById('previewColor').appendChild(colorImg);
+    };
+    r.readAsDataURL(e.target.files[0]);
+  });
+  function applyColor(){
+    if(!colorImg) return alert("Upload first!");
+    const f=document.getElementById('colorFilter').value;
+    const c=document.createElement('canvas'),ctx=c.getContext('2d');
+    c.width=colorImg.width; c.height=colorImg.height;
+    ctx.filter=f; ctx.drawImage(colorImg,0,0);
+    const a=document.createElement('a');
+    a.download="color.png";
+    a.href=c.toDataURL("image/png");
+    a.click();
+  }
+
+  // === Image → Base64 ===
+  let toBase64File=null;
+  document.getElementById('uploadToBase64').addEventListener('change', e=>{
+    toBase64File=e.target.files[0];
+    if(toBase64File){
+      const r=new FileReader();
+      r.onload=ev=>{
+        document.getElementById('previewToBase64').innerHTML="<img src='"+ev.target.result+"'>";
+      };
+      r.readAsDataURL(toBase64File);
+    }
+  });
+  function convertToBase64(){
+    if(!toBase64File) return alert("Upload first!");
+    const r=new FileReader();
+    r.onload=e=>{
+      document.getElementById('outputBase64').value=e.target.result;
+    };
+    r.readAsDataURL(toBase64File);
+  }
+
+  // === Base64 → Image ===
+  let currentImage="";
+  function convertFromBase64(){
+    const base64=document.getElementById("base64Input").value.trim();
+    if(base64===""){ alert("Paste Base64 string first."); return; }
+    let imgSrc=base64.startsWith("data:image")?base64:"data:image/png;base64,"+base64;
+    currentImage=imgSrc;
+    document.getElementById("previewFromBase64").innerHTML=`<img src="${imgSrc}" alt="Converted Image"/>`;
+  }
+  function downloadFromBase64(){
+    if(!currentImage){ alert("Convert first."); return; }
+    const link=document.createElement("a");
+    link.href=currentImage; link.download="converted_image.png"; link.click();
+  }
+
+  // === KB Converter ===
+  let kbFile=null;
+  document.getElementById('uploadKB').addEventListener('change', e=>{
+    kbFile = e.target.files[0];
+    if(kbFile){
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('previewKB').innerHTML = "<img src='"+ev.target.result+"'>";
+      };
+      reader.readAsDataURL(kbFile);
+    }
+  });
+  function compressKB(){
+    if(!kbFile) return alert("Upload first!");
+    const targetKB = parseInt(document.getElementById('targetKB').value);
+    const status = document.getElementById('kbInfo');
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      let quality = 0.95;
+      function tryCompress(){
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const dataSize = Math.ceil((dataUrl.length * (3/4))/1024);
+        status.textContent = `Trying quality ${Math.round(quality*100)}%: ${dataSize} KB`;
+        if(dataSize <= targetKB || quality <= 0.1){
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = 'compressed.jpg';
+          a.click();
+          status.textContent += " ✅ Done!";
+          return;
+        }
+        quality -= 0.05;
+        setTimeout(tryCompress,100);
+      }
+      tryCompress();
+    };
+    reader.readAsDataURL(kbFile);
+  }
+
+  // === 🆕 Image → PDF ===
+  let pdfImageFile=null;
+  document.getElementById('uploadPdfImage').addEventListener('change', e=>{
+    pdfImageFile=e.target.files[0];
+    if(pdfImageFile){
+      const r=new FileReader();
+      r.onload=ev=>{
+        document.getElementById('previewPdfImage').innerHTML="<img src='"+ev.target.result+"'>";
+      };
+      r.readAsDataURL(pdfImageFile);
+    }
+  });
+  async function convertToPdf(){
+    if(!pdfImageFile) return alert("Upload an image first!");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const ratio = Math.min(pageWidth / img.width, pageHeight / img.height);
+        const w = img.width * ratio;
+        const h = img.height * ratio;
+        const x = (pageWidth - w) / 2;
+        const y = (pageHeight - h) / 2;
+        pdf.addImage(img, 'PNG', x, y, w, h);
+        pdf.save("image.pdf");
+      };
+    };
+    reader.readAsDataURL(pdfImageFile);
+  }
+</script>
+
+</body>
+</html>
